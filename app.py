@@ -60,16 +60,21 @@ def display_conversation():
                 # シグニフィケーターの表示
                 if result.get("significator"):
                     sig = result["significator"]
+                    st.chat_message("assistant").markdown(f"### **シグニフィケーター: {sig['name']}**")
                     try:
                         sig_img = Image.open(sig["img"])
-                        st.chat_message("assistant").image(sig_img, caption=f"シグニフィケーター: {sig['name']}", width=150)
+                        st.chat_message("assistant").image(sig_img, width=150)
                     except Exception as e:
                         st.chat_message("assistant").write(f"シグニフィケーター画像の読み込みに失敗しました: {e}")
                 # 10枚のカードの表示
                 for card in result.get("cards", []):
+                    # カード名と位置を表示
                     st.chat_message("assistant").markdown(
-                        f"**{card['position']}. {card['name']}（{card['orientation']}）**"
+                        f"### **{card['position']}. {card['name']}（{card['orientation']}）**\n\n" + card['explanation']
                     )
+                    # カード名と位置の下に説明を表示
+                    # if card.get("explanation"):
+                    #     st.chat_message("assistant").markdown(card['explanation'])
                     try:
                         img = Image.open(card["img"])
                         if card["orientation"] == "逆位置":
@@ -77,15 +82,11 @@ def display_conversation():
                         st.chat_message("assistant").image(img, width=150)
                     except Exception as e:
                         st.chat_message("assistant").write(f"カード{card['position']}の画像読み込みに失敗しました: {e}")
-                    # 画像の直下にカードの説明を表示
-                    if card.get("explanation"):
-                        st.chat_message("assistant").markdown(f"説明: {card['explanation']}")
-                if result.get("summary"):
-                    st.chat_message("assistant").write("**全体の結論:**")
-                    st.chat_message("assistant").markdown(result["summary"])
+
+                if result.get("conclusion"):
+                    st.chat_message("assistant").markdown('#### **全体の結論**\n\n' + result["conclusion"])
                 if result.get("advice"):
-                    st.chat_message("assistant").write("**アドバイス:**")
-                    st.chat_message("assistant").markdown(result["advice"])
+                    st.chat_message("assistant").markdown('#### **アドバイス**\n\n' + result["advice"])
             else:
                 st.chat_message("assistant").markdown(msg["content"])
 
@@ -102,7 +103,7 @@ if not st.session_state.reading_done:
         if question_text.strip() == "":
             st.warning("質問内容を入力してください。")
         else:
-            user_msg = f"{age_group}の{gender}、質問:\n{question_text}"
+            user_msg = f"相談者: {age_group}の{gender}、質問:{question_text}"
             st.session_state.conversation.append({"role": "user", "type": "text", "content": user_msg})
             
             court_cards = [
@@ -149,9 +150,11 @@ if not st.session_state.reading_done:
             spread_info += "以上のカードが出ました。"
             full_prompt = (
                 f"{user_intro}\n{user_question}\n{spread_info}\n"
-                "各カードの意味と位置の解釈、そして全体の結論とアドバイスを、改行を適宜入れて読みやすく、"
+                "各カードの意味と位置を質問に沿って解釈し、"
+                "そして全体の結論とアドバイスを、改行を適宜入れて読みやすく、"
                 "日本語で詳しく教えてください。"
-                "回答は厳密に以下のPythonプログラムのフォーマットでお願いします。これ以外のものは表示しないでください"
+                "回答は厳密に以下のPythonプログラムのフォーマットでお願いします。"
+                "これ以外のものは表示しないでください"
 '''
 ```python
 significator = シグニフィケーターの名前
@@ -163,7 +166,7 @@ results = [
 ]
 
 conclusion = 結論
-advaice = アドバイス```'''
+advice = アドバイス```'''
             )
             st.session_state.messages.append({"role": "user", "content": full_prompt})
             response = chat.invoke([
@@ -204,14 +207,14 @@ advaice = アドバイス```'''
             conclusion_match = re.search(conclusion_pattern, code_text, re.DOTALL)
             conclusion_text = conclusion_match.group(1).strip() if conclusion_match else ""
 
-            advaice_pattern = r"advaice\s*=\s*\"(.*?)\""
-            advaice_match = re.search(advaice_pattern, code_text, re.DOTALL)
-            advice_text = advaice_match.group(1).strip() if advaice_match else ""
+            advice_pattern = r"advice\s*=\s*\"(.*?)\""
+            advice_match = re.search(advice_pattern, code_text, re.DOTALL)
+            advice_text = advice_match.group(1).strip() if advice_match else ""
 
             result_block = {
                 "significator": None,
                 "cards": [],
-                "summary": conclusion_text,
+                "conclusion": conclusion_text,
                 "advice": advice_text
             }
             if significator_value:
