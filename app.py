@@ -81,7 +81,7 @@ def display_conversation():
                     if card.get("explanation"):
                         st.chat_message("assistant").markdown(f"説明: {card['explanation']}")
                 if result.get("summary"):
-                    st.chat_message("assistant").write("**全体の結論・アドバイス:**")
+                    st.chat_message("assistant").write("**全体の結論:**")
                     st.chat_message("assistant").markdown(result["summary"])
                 if result.get("advice"):
                     st.chat_message("assistant").write("**アドバイス:**")
