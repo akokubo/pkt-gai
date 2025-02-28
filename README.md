@@ -1,6 +1,9 @@
 # 生成AIタロット占いアプリ
 アーサー・E・ウェイト『タロット図解』に基づいてケルト十字法で、ライダー社のウェイト=スミス版デッキを用いて、生成AIが占います。
 
+<img src="images/pkt-gai.jpg" width="100%" alt="生成AIタロット占いアプリ">
+
+
 ## 使用したもの
 * [Streamlit](https://streamlit.io/)
 * [LangChain](https://www.langchain.com/)
