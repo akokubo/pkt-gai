@@ -151,7 +151,8 @@ if not st.session_state.reading_done:
             ]
             # 性別・年齢に応じたカードランクを選択
             if gender == "男性":
-                rank = "Knight" if age_group == "40歳以上" else "King"
+                # 『タロット図解』の指定は逆で、40歳以上がKnight、40歳未満がKing
+                rank = "King" if age_group == "40歳以上" else "Knight"
             elif gender == "女性":
                 rank = "Queen" if age_group == "40歳以上" else "Page"
             else:
