@@ -10,6 +10,7 @@ from PIL import Image
 st.set_page_config(page_title="生成AIタロット占いアプリ", page_icon="🔮", layout="centered")
 
 MODEL = "lucas2024/gemma-2-2b-jpn-it:q8_0"
+# MODEL = "hf.co/rinna/deepseek-r1-distill-qwen2.5-bakeneko-32b-gguf:latest"
 BASE_URL = "http://localhost:11434/v1"
 OPENAI_API_KEY = "ollama"
 TEMPERATURE = 0.0
@@ -91,6 +92,7 @@ def display_conversation():
 # --- 占いフォーム（初回） ---
 if not st.session_state.reading_done:
     st.title("🔮 生成AIタロット占い")
+    st.image("images/pkt-gai.jpg", use_container_width=True)
     st.write("アーサー・E・ウェイト『タロット図解』に基づいてケルト十字法で、ライダー社のウェイト=スミス版デッキを用いて、生成AIが占います。")
     st.write("性別と年齢層を選択し、占いたい質問を入力してください。")
     gender = st.selectbox("性別", ["男性", "女性", "その他"])
