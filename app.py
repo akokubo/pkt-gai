@@ -11,16 +11,16 @@ import base64
 # 設定値（モデル、API設定、プロンプトなど）
 # -------------------------------
 MODEL = "lucas2024/gemma-2-2b-jpn-it:q8_0"  # 使用する生成モデル
-BASE_URL = "http://localhost:11434/v1"          # API のベース URL
-OPENAI_API_KEY = "ollama"                        # API キー
-TEMPERATURE = 0.9                                # 生成時のランダム度（温度）
+BASE_URL = "http://localhost:11434/v1"      # API のベース URL
+OPENAI_API_KEY = "ollama"                   # API キー
+TEMPERATURE = 0.9                           # 生成時のランダム度（温度）
 SYSTEM_PROMPT = (
     "あなたは、経験豊富で思慮深く、思いやりがあり、優れた直感と霊感に満ち、よく当たると評判のタロット占い師です。"
     "すべて日本語で回答してください。"
 )
 
 # Streamlit ページ全体の設定（レイアウトをワイドに設定）
-st.set_page_config(page_title="生成AIによるケルト十字法タロット占い", page_icon="🔮", layout="centered")
+st.set_page_config(page_title="生成AIによるタロット占い: アーサー・E・ウェイト『タロット図解』のケルト十字法に基づく", page_icon="🔮", layout="centered")
 
 # -------------------------------
 # タロットカード情報の読み込み
@@ -32,7 +32,7 @@ with open("tarot_cards.json", "r", encoding="utf-8") as f:
 # -------------------------------
 # ユーザー入力（Streamlit UI）
 # -------------------------------
-st.title("生成AIによるケルト十字法タロット占い")
+st.title("生成AIによるタロット占い")
 st.text("アーサー・E・ウェイト『タロット図解』に基づいてケルト十字法で、ライダー社のウェイト=スミス版デッキを用いて、生成AIが占います。")
 st.image("images/pkt-gai.jpg", use_container_width=True)
 
