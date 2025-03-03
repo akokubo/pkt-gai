@@ -7,14 +7,14 @@
 ## 使用したもの
 * [Streamlit](https://streamlit.io/)
 * [LangChain](https://www.langchain.com/)
-* [Ollama](https://ollama.com/)
+* [Ollama](https://ollama.com/)か[LM Studio](https://lmstudio.ai/)
 * Arthur Edward Waite, Pamela Colman Smith, ["The Pictorial Key to the Tarot"](https://en.wikisource.org/wiki/The_Pictorial_Key_to_the_Tarot), 	William Rider & Son, 1910/1911
 * カードの画像, [Rider–Waite Tarot](https://en.wikipedia.org/wiki/Rider%E2%80%93Waite_Tarot)
 
 ## インストール
 ```
 git clone https://github.com/akokubo/pkt-gai.git
-cd pkt-gai
+cd pkt-grai
 python3 -m venv venv
 source venv/bin/activate
 python3 -m pip install --upgrade pip
@@ -28,10 +28,19 @@ python3 -m pip install streamlit langchain langchain-openai
 1. Ollamaをインストール
    - Windowsの場合は、WSL2で仮想環境から `curl -fsSL https://ollama.com/install.sh | sh` でインストール
    - Macの場合は、[ダウンロード](https://ollama.com/download/windows)してインストール
-2. Ollamaで大規模言語モデルの `lucas2024/gemma-2-2b-jpn-it:q8_0` をpullする。
+2. Ollamaで大規模言語モデルの `lucas2024/gemma-2-2b-jpn-it:q8_0` などをpullする。
 ```
 ollama pull lucas2024/gemma-2-2b-jpn-it:q8_0
 ```
+※大規模言語モデルは、自由に選べ、他のものでもいい。
+
+※Ollamaの代わりに[LM Studio](https://lmstudio.ai/)も利用できる。
+その場合、「alfredplpl/gemma-2-2b-jpn-it」などのモデルをダウンロードする。
+LM Studioで、サーバーを走らせるには、左の「開発者」を選び、「Status」のトグルスイッチを切り替え「Running」にし、「Settings」で「ローカルネットワークでサービング」をオンにする。
+そして、app.pyの中の「BASE_URL」を `"http://localhost:1234/v1"`に変更する。
+右の「This model's API identifier」の値を「MODEL」に指定する。
+
+※Windowsで、WSLからLM Studioに接続するには、ローカルネットワークでサービングをオンにし、右の「The local server is reachable at this address」のIPアドレスを `localhost` の代わりに指定する。
 
 ## 実行
 最初に、プログラムを展開したフォルダに入る。
@@ -44,6 +53,7 @@ Ollamaが起動していないかもしれないので、仮想環境に入っ�
 ```
 ollama list
 ```
+※Ollamaの代わりにLM Studioを使っている場合は不要
 
 仮想環境に入っている状態で、以下のコマンドでアプリを起動する。
 ```
