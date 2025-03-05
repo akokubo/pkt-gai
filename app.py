@@ -245,7 +245,6 @@ def render_layout_css(layout: str) -> None:
 .card-pos2 { top: 41%; left: 33.5%; transform: rotate(-90deg); }
 .card-pos3 { top: 4%; left: 33%; }
 .card-pos4 { top: 76%; left: 33%; }
-
 .card-pos7 { top: 76%; left: 86%; }
 .card-pos8 { top: 52%; left: 86%; }
 .card-pos9 { top: 28%; left: 86%; }
@@ -255,13 +254,13 @@ def render_layout_css(layout: str) -> None:
     # シグニフィケーターの見ている方向によって位置が変わるカードのCSS
     if layout == "right":
         css2 = """
-.card-pos5 { top: 41%; left: 61%; }
-.card-pos6 { top: 41%; left: 4%; }
+.card-pos6 { top: 41%; left: 61%; }
+.card-pos5 { top: 41%; left: 4%; }
         """
     else:
         css2 = """
-.card-pos6 { top: 41%; left: 61%; }
-.card-pos5 { top: 41%; left: 4%; }
+.card-pos5 { top: 41%; left: 61%; }
+.card-pos6 { top: 41%; left: 4%; }
         """
 
     css3 = """
