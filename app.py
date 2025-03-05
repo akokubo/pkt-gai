@@ -6,6 +6,8 @@ from PIL import Image
 from langchain_openai import ChatOpenAI
 from langchain.schema import SystemMessage, HumanMessage, AIMessage
 import base64
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
 # =============================================================================
 # 基本設定（モデル、API設定、プロンプトなど）
@@ -60,7 +62,8 @@ def translate_query(query: str, chat: ChatOpenAI) -> str:
 
 def choose_card(cards: List[Tuple[str, Dict[str, Any]]], query: str) -> Tuple[str, Dict[str, Any]]:
     """
-    候補カードの中から、質問文と各カードの説明文に共通する単語数が最も多いカードを選択する。
+    候補カードの中から、質問文と各カードの説明文のTF-IDFベクトルを算出し、
+    コサイン類似度に基づいて最も類似度が高いカードを選択する関数。
     
     Args:
         cards: (カードキー, カード情報) のリスト
@@ -69,12 +72,29 @@ def choose_card(cards: List[Tuple[str, Dict[str, Any]]], query: str) -> Tuple[st
     Returns:
         選ばれたカードのキーとその情報のタプル
     """
-    query_words = set(query.lower().split())
-    best_score, selected_key, selected_card = -1, "", {}
+    # 全カードの説明文リストを作成
+    descriptions = [card["description"] for _, card in cards]
+    
+    # TF-IDF ベクトル化のため、全説明文と質問文を合わせたコーパスを作成
+    corpus = descriptions + [query]
+    vectorizer = TfidfVectorizer().fit(corpus)
+    
+    # 質問文のベクトルを取得
+    query_vec = vectorizer.transform([query])
+    
+    best_score = -1
+    selected_key = ""
+    selected_card = {}
+    
+    # 各カードの説明文とのコサイン類似度を計算し、最大のものを選択
     for key, card in cards:
-        score = len(query_words & set(card["description"].lower().split()))
+        card_vec = vectorizer.transform([card["description"]])
+        score = cosine_similarity(query_vec, card_vec)[0][0]
         if score > best_score:
-            best_score, selected_key, selected_card = score, key, card
+            best_score = score
+            selected_key = key
+            selected_card = card
+            
     return selected_key, selected_card
 
 def get_candidate_keys() -> List[str]:
@@ -163,7 +183,7 @@ def generate_conclusion(chat: ChatOpenAI, selected_card: Dict[str, Any],
     for c in all_cards:
         label = position_labels[c["index"]] if c["index"] < len(position_labels) else f"{c['index']}枚目"
         summary += f"・{label}: {c['name']} ({c['orientation']})\n"
-    summary += "\n上記を踏まえた結論を、わかりやすいていねいな日本語でお願いします。回答に表題は不要です。"
+    summary += "\n上記を踏まえた結論を、わかりやすく、ていねいな日本語でお願いします。回答に表題は不要です。"
     response: AIMessage = chat.invoke([
         SystemMessage(content=SYSTEM_PROMPT),
         HumanMessage(content=summary)
@@ -181,7 +201,7 @@ def generate_advice(chat: ChatOpenAI, selected_card: Dict[str, Any],
         label = position_labels[c["index"]] if c["index"] < len(position_labels) else f"{c['index']}枚目"
         summary += f"・{label}: {c['name']} ({c['orientation']})\n"
     summary += (
-        f"\n上記の流れと以下の結論をふまえて、実践的なアドバイスを、わかりやすいていねいな日本語でお願いします。"
+        f"\n上記の流れと以下の結論をふまえて、実践的なアドバイスを、わかりやすく、ていねいな日本語でお願いします。"
         f"回答に表題は不要です。\n結論: {conclusion}"
     )
     response: AIMessage = chat.invoke([
