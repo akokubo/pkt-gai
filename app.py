@@ -139,13 +139,30 @@ def generate_conclusion(chat: ChatOpenAI, selected_card: Dict[str, Any],
                         query_text: str, all_cards: List[Dict[str, Any]],
                         position_labels: List[str]) -> str:
     """
-    全体のスプレッド情報を元に、LLM によって結論やアドバイスを生成する。
+    全体のスプレッド情報を元に、LLM によって結論を生成する。
     """
     summary = f"significator = {selected_card['name']}\nquery_text = {query_text}\n\n[スプレッド概要]\n"
     for c in all_cards:
         label = position_labels[c["index"]] if c["index"] < len(position_labels) else f"{c['index']}枚目"
         summary += f"・{label}: {c['name']} ({c['orientation']})\n"
-    summary += "\n上記を踏まえた結論とアドバイスを、わかりやすいていねいな日本語でお願いします。"
+    summary += "\n上記を踏まえた結論を、わかりやすいていねいな日本語でお願いします。"
+    response: AIMessage = chat.invoke([
+        SystemMessage(content=SYSTEM_PROMPT),
+        HumanMessage(content=summary)
+    ])
+    return response.content
+
+def generate_advice(chat: ChatOpenAI, selected_card: Dict[str, Any],
+                    query_text: str, all_cards: List[Dict[str, Any]],
+                    conclusion: str, position_labels: List[str]) -> str:
+    """
+    全体のスプレッド情報と先に生成された結論を踏まえて、LLM によって実践的なアドバイスを生成する。
+    """
+    summary = f"significator = {selected_card['name']}\nquery_text = {query_text}\n\n[スプレッド概要]\n"
+    for c in all_cards:
+        label = position_labels[c["index"]] if c["index"] < len(position_labels) else f"{c['index']}枚目"
+        summary += f"・{label}: {c['name']} ({c['orientation']})\n"
+    summary += f"\n上記の流れと以下の結論をふまえて、実践的なアドバイスを、わかりやすいていねいな日本語でお願いします。\n結論: {conclusion}"
     response: AIMessage = chat.invoke([
         SystemMessage(content=SYSTEM_PROMPT),
         HumanMessage(content=summary)
@@ -157,6 +174,7 @@ def generate_conclusion(chat: ChatOpenAI, selected_card: Dict[str, Any],
 # -------------------------------
 if st.button("占う"):
     st.divider()
+    st.header("選ばれたカードの一覧")
     # ChatOpenAI のインスタンスを生成
     chat = ChatOpenAI(
         model_name=MODEL,
@@ -208,20 +226,21 @@ if st.button("占う"):
     # CSS によるケルト十字レイアウトの定義
     st.markdown("""
     <style>
-    .celtic-cross-container {position: relative; width: 704px; height: 800px; margin: 0 auto; border: 1px solid #ccc;}
+    .celtic-cross-container {position: relative; width: 704px; height: 556px; margin: 0 auto 10px; border: 1px solid #ccc;}
     .card-position {position: absolute;}
-    .card-position img {width: 110px; height: auto; border: 1px solid black; filter: drop-shadow(2px 2px 3px gray);}
-    .card-pos0 {top: 50.5%; left: 35%; transform: translate(-50%, -50%);}
-    .card-pos1 {top: 49.5%; left: 38%; transform: translate(-50%, -50%);}
-    .card-pos2 {top: 50%; left: 37%; transform: translate(-50%, -50%) rotate(-90deg);}
-    .card-pos3 {top: 24%; left: 37%; transform: translate(-50%, -50%);}
-    .card-pos4 {top: 76%; left: 37%; transform: translate(-50%, -50%);}
-    .card-pos5 {top: 50%; left: 10%; transform: translate(-50%, -50%);}
-    .card-pos6 {top: 50%; left: 64%; transform: translate(-50%, -50%);}
-    .card-pos7 {top: 75%; left: 85%; transform: translate(-50%, 0);}
-    .card-pos8 {top: 51%; left: 85%; transform: translate(-50%, 0);}
-    .card-pos9 {top: 27%; left: 85%; transform: translate(-50%, 0);}
-    .card-pos10 {top: 3%; left: 85%; transform: translate(-50%, 0);}
+    .card-position img {width: 70px; height: auto; border: 1px solid black; filter: drop-shadow(0px 0px 3px darkgray);}
+
+    .card-pos0 {top: 41%; left: 33%; transform: translate(0, 0);}
+    .card-pos1 {top: 40%; left: 34%; transform: translate(0, 0);}
+    .card-pos2 {top: 41%; left: 33.5%; transform: translate(0, 0) rotate(-90deg);}
+    .card-pos3 {top: 4%; left: 33%; transform: translate(0, 0);}
+    .card-pos4 {top: 76%; left: 33%; transform: translate(0, 0);}
+    .card-pos5 {top: 41%; left: 61%; transform: translate(0, 0);}
+    .card-pos6 {top: 41%; left: 4%; transform: translate(0, 0);}
+    .card-pos7 {top: 76%; left: 86%; transform: translate(0, 0);}
+    .card-pos8 {top: 52%; left: 86%; transform: translate(0, 0);}
+    .card-pos9 {top: 28%; left: 86%; transform: translate(0, 0);}
+    .card-pos10 {top: 4%; left: 86%; transform: translate(0, 0);}
     </style>
     """, unsafe_allow_html=True)
 
@@ -234,6 +253,10 @@ if st.button("占う"):
     # ケルト十字レイアウトのコンテナに HTML を埋め込み
     st.markdown(f'<div class="celtic-cross-container">{celtic_html}</div>', unsafe_allow_html=True)
 
+    # カードのリストを表示
+    card_list = [f"**{position_labels[card['index']]}:** {card['name']} ({card['orientation']})" for card in all_cards]
+    st.markdown("<br>".join(card_list), unsafe_allow_html=True)
+
     st.divider()
     # 各カードごとのリーディング（占い結果）を生成・表示
     st.header("各カードのリーディング")
@@ -245,7 +268,13 @@ if st.button("占う"):
         st.write(reading)
         st.divider()
 
-    # 全体の結論・アドバイスを生成し、表示する
-    st.header("全体を通しての結論・アドバイス")
+    # 全体の結論を生成し、表示する
+    st.header("結論")
     conclusion = generate_conclusion(chat, selected_card, query_text, all_cards, position_labels)
     st.write(conclusion)
+
+    st.divider()
+    # 全体のアドバイスを生成し、表示する
+    st.header("アドバイス")
+    advice = generate_advice(chat, selected_card, query_text, all_cards, conclusion, position_labels)
+    st.write(advice)
