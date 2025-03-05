@@ -177,13 +177,13 @@ def generate_conclusion(chat: ChatOpenAI, selected_card: Dict[str, Any],
                         query_text: str, all_cards: List[Dict[str, Any]],
                         position_labels: List[str]) -> str:
     """
-    全カード（シグニフィケーター＋スプレッド）の情報から全体の結論を生成する関数。
+    全カード（シグニフィケーター＋スプレッド）の情報から全体のまとめを生成する関数。
     """
     summary = f"significator = {selected_card['name']}\nquery_text = {query_text}\n\n[スプレッド概要]\n"
     for c in all_cards:
         label = position_labels[c["index"]] if c["index"] < len(position_labels) else f"{c['index']}枚目"
         summary += f"・{label}: {c['name']} ({c['orientation']})\n"
-    summary += "\n上記を踏まえた結論を、わかりやすく、ていねいな日本語でお願いします。回答に表題は不要です。"
+    summary += "\n上記を踏まえたまとめを、わかりやすく、ていねいな日本語でお願いします。回答に表題は不要です。"
     response: AIMessage = chat.invoke([
         SystemMessage(content=SYSTEM_PROMPT),
         HumanMessage(content=summary)
@@ -194,15 +194,15 @@ def generate_advice(chat: ChatOpenAI, selected_card: Dict[str, Any],
                     query_text: str, all_cards: List[Dict[str, Any]],
                     conclusion: str, position_labels: List[str]) -> str:
     """
-    全カードと先に生成した結論をもとに、実践的なアドバイスを生成する関数。
+    全カードと先に生成したまとめをもとに、実践的なアドバイスを生成する関数。
     """
     summary = f"significator = {selected_card['name']}\nquery_text = {query_text}\n\n[スプレッド概要]\n"
     for c in all_cards:
         label = position_labels[c["index"]] if c["index"] < len(position_labels) else f"{c['index']}枚目"
         summary += f"・{label}: {c['name']} ({c['orientation']})\n"
     summary += (
-        f"\n上記の流れと以下の結論をふまえて、実践的なアドバイスを、わかりやすく、ていねいな日本語でお願いします。"
-        f"回答に表題は不要です。\n結論: {conclusion}"
+        f"\n上記の流れと以下のまとめをふまえて、実践的なアドバイスを、わかりやすく、ていねいな日本語でお願いします。"
+        f"回答に表題は不要です。\nまとめ: {conclusion}"
     )
     response: AIMessage = chat.invoke([
         SystemMessage(content=SYSTEM_PROMPT),
@@ -238,6 +238,7 @@ def render_layout_css(layout: str) -> None:
     width: 70px;
     height: auto;
     border: 1px solid black;
+    border-radius: 3px;
     filter: drop-shadow(0px 0px 3px darkgray);
 }
 .card-pos0 { top: 41%; left: 33%; }
@@ -293,8 +294,9 @@ if st.button("占う"):
     spread = generate_spread(sig_key)
     
     # 各カードの配置位置ラベル（シグニフィケーター＋10枚のカード）
-    position_labels = ["シグニフィケーター", "現状", "試練", "目標", "原因", "過去", "未来", "本音", "周囲", "予測", "結果"]
-    
+    position_labels = ["The Significator – Represents the Querant or The Issue","Position 1 – What Covers", "Position 2 – What Crosses", "Position 3 – What Crowns", "Position 4 – What is Beneath", "Position 5 – What is Behind", "Position 6 – What is Before", "Position 7 – Himself", "Position 8 – His House", "Position 9 – Hopes and Fears", "Position 10 – What Will Come"]
+    japanese_position_labels = ["象徴カード", "1枚目 現状", "2枚目 試練", "3枚目 目標", "4枚目 原因", "5枚目 過去", "6枚目 未来", "7枚目 本音", "8枚目 周囲", "9枚目 予感", "10枚目 結果"]
+
     # シグニフィケーターとスプレッドのカード情報を統合（index, key, name, orientation, description）
     all_cards = [{
         "index": 0,
@@ -334,7 +336,7 @@ if st.button("占う"):
     
     # カードリスト（配置ラベルとカード名、向き）の表示
     card_list = [
-        f"**{position_labels[card['index']]}:** {card['name']} ({card['orientation']})"
+        f"**{japanese_position_labels[card['index']]}:** {card['name']} ({card['orientation']})"
         for card in all_cards
     ]
     st.markdown("<br>".join(card_list), unsafe_allow_html=True)
@@ -343,20 +345,20 @@ if st.button("占う"):
     st.header("各カードのリーディング")
     # 各カードについて、リーディング（占い結果）を生成して表示
     for card in all_cards:
-        pos_label = position_labels[card["index"]] if card["index"] < len(position_labels) else f"{card['index']}枚目"
+        pos_label = japanese_position_labels[card["index"]] if card["index"] < len(japanese_position_labels) else f"{card['index']}枚目"
         reading = generate_reading(chat, selected_card, query_text, card, pos_label)
-        st.subheader(f"{card['index']}. {pos_label} / {card['name']} ({card['orientation']})")
+        st.subheader(f"{pos_label}: {card['name']} ({card['orientation']})")
         st.image(load_and_resize_card(card), caption=f'{card["name"]} ({card["orientation"]})')
         st.write(reading)
         st.divider()
     
-    # 全体の結論を生成して表示
-    st.header("結論")
+    # 全体のまとめを生成して表示
+    st.header("まとめ")
     conclusion = generate_conclusion(chat, selected_card, query_text, all_cards, position_labels)
     st.write(conclusion)
     
     st.divider()
-    # 結論と全体スプレッドをもとに、実践的なアドバイスを生成して表示
+    # まとめと全体スプレッドをもとに、実践的なアドバイスを生成して表示
     st.header("アドバイス")
     advice = generate_advice(chat, selected_card, query_text, all_cards, conclusion, position_labels)
     st.write(advice)
