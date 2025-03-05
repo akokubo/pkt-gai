@@ -7,50 +7,52 @@ from langchain_openai import ChatOpenAI
 from langchain.schema import SystemMessage, HumanMessage, AIMessage
 import base64
 
-# -------------------------------
-# 設定値（モデル、API設定、プロンプトなど）
-# -------------------------------
+# =============================================================================
+# 基本設定（モデル、API設定、プロンプトなど）
+# =============================================================================
 MODEL = "lucas2024/gemma-2-2b-jpn-it:q8_0"  # 使用する生成モデル
-BASE_URL = "http://localhost:11434/v1"      # API のベース URL
-OPENAI_API_KEY = "ollama"                   # API キー
-TEMPERATURE = 0.9                           # 生成時のランダム度（温度）
+BASE_URL = "http://localhost:11434/v1"       # API のベース URL
+OPENAI_API_KEY = "ollama"                    # API キー
+TEMPERATURE = 0.9                            # 生成時のランダム度（温度）
 SYSTEM_PROMPT = (
     "あなたは、経験豊富で思慮深く、思いやりがあり、優れた直感と霊感に満ち、よく当たると評判のタロット占い師です。"
     "すべて日本語で回答してください。"
 )
 
-# Streamlit ページ全体の設定（レイアウトをワイドに設定）
-st.set_page_config(page_title="生成AIによるタロット占い: アーサー・E・ウェイト『タロット図解』のケルト十字法に基づく", page_icon="🔮", layout="centered")
+# Streamlit のページ設定（タイトル、アイコン、レイアウト）
+st.set_page_config(
+    page_title="生成AIによるタロット占い: ケルト十字法",
+    page_icon="🔮",
+    layout="centered"
+)
 
-# -------------------------------
-# タロットカード情報の読み込み
-# -------------------------------
-# tarot_cards.json からカード情報を読み込み（辞書形式）
+# =============================================================================
+# タロットカードデータの読み込み
+# =============================================================================
 with open("tarot_cards.json", "r", encoding="utf-8") as f:
     tarot_cards: Dict[str, Any] = json.load(f)
 
-# -------------------------------
-# ユーザー入力（Streamlit UI）
-# -------------------------------
+# =============================================================================
+# ユーザーインターフェース（Streamlit UI）
+# =============================================================================
 st.title("生成AIによるタロット占い")
-st.text("アーサー・E・ウェイト『タロット図解』に基づいてケルト十字法で、ライダー社のウェイト=スミス版デッキを用いて、生成AIが占います。")
+st.text("アーサー・E・ウェイト『タロット図解』に基づくケルト十字法で、ライダー版タロットを用いた占いです。")
 st.image("images/pkt-gai.jpg", use_container_width=True)
 
-# ユーザーからの属性入力
+# ユーザー属性と占いたい内容の入力
 sex = st.selectbox("性別を選択してください。", ["男", "女", "その他"])
 age_category = st.radio("年齢を選択してください。", ["40歳未満", "40歳以上"])
 over_40 = (age_category == "40歳以上")
 is_self_fortune_requested = (st.radio("占いたいのは質問者自身のことですか？", ["はい", "いいえ"]) == "はい")
-# 占ってほしい内容（質問文）の入力
 query_text = st.text_input("占って欲しい内容を入力してください。")
 
-# -------------------------------
-# 関数定義
-# -------------------------------
+# =============================================================================
+# 補助関数群
+# =============================================================================
 def translate_query(query: str, chat: ChatOpenAI) -> str:
     """
-    入力された日本語の質問文を、LLM を用いて英語に翻訳する。
-    プロンプトで「訳した文章だけ」を返すように指示する。
+    質問文を英語に翻訳する関数。
+    プロンプト内で「訳した文章のみ」を返すよう指示しています。
     """
     prompt = f"次の日本語を英語に訳してください。訳した文章だけを返してください：\n\n{query}"
     response: AIMessage = chat.invoke([HumanMessage(content=prompt)])
@@ -58,7 +60,14 @@ def translate_query(query: str, chat: ChatOpenAI) -> str:
 
 def choose_card(cards: List[Tuple[str, Dict[str, Any]]], query: str) -> Tuple[str, Dict[str, Any]]:
     """
-    与えられた候補カードリストの中から、質問文（英訳済み）とカード説明文の共通単語数が最も多いカードを選択する。
+    候補カードの中から、質問文と各カードの説明文に共通する単語数が最も多いカードを選択する。
+    
+    Args:
+        cards: (カードキー, カード情報) のリスト
+        query: 英語に翻訳された質問文
+        
+    Returns:
+        選ばれたカードのキーとその情報のタプル
     """
     query_words = set(query.lower().split())
     best_score, selected_key, selected_card = -1, "", {}
@@ -70,20 +79,21 @@ def choose_card(cards: List[Tuple[str, Dict[str, Any]]], query: str) -> Tuple[st
 
 def get_candidate_keys() -> List[str]:
     """
-    占う対象に応じて、使用する候補カードのキーのリストを返す。
-    自分自身の占いの場合、性別と年齢に応じた候補リストを選択する。
+    占う対象に応じた候補カードのキーリストを返す関数。
+    質問者自身の場合は性別と年齢で候補を絞り込み、それ以外の場合は全カードから選択します。
     """
     if not is_self_fortune_requested:
         return list(tarot_cards.keys())
-    return (["22", "36", "50", "64"] if sex == "男" and over_40 else
-            ["24", "38", "52", "66"] if sex == "男" else
-            ["23", "37", "51", "65"] if over_40 else
-            ["25", "39", "53", "67"])
+    # 性別と年齢に基づく候補リスト（例）
+    if sex == "男":
+        return ["22", "36", "50", "64"] if over_40 else ["24", "38", "52", "66"]
+    else:
+        return ["23", "37", "51", "65"] if over_40 else ["25", "39", "53", "67"]
 
 def generate_spread(sig_key: str) -> List[Dict[str, Any]]:
     """
-    指定されたシグニフィケーター以外のカードからランダムに10枚を選び、
-    各カードに正位置か逆位置かをランダムに設定し、スプレッド（配置）を生成する。
+    シグニフィケーター以外のカードからランダムに10枚選び、各カードに正位置または逆位置を設定して
+    スプレッド（カード配置）を作成する関数。
     """
     deck = tarot_cards.copy()
     deck.pop(sig_key, None)  # シグニフィケーターは除外
@@ -94,13 +104,12 @@ def generate_spread(sig_key: str) -> List[Dict[str, Any]]:
         "card": deck[key],
         "orientation": random.choice(["正位置", "逆位置"])
     } for i, key in enumerate(spread_keys, start=1)]
-    # インデックス順にソートして返す
     return sorted(spread, key=lambda x: x["index"])
 
-def load_and_resize_card(card_info: Dict[str, str]) -> Image.Image:
+def load_and_resize_card(card_info: Dict[str, Any]) -> Image.Image:
     """
-    指定されたカードの画像を読み込み、逆位置の場合は180度回転、
-    その後、50%のサイズにリサイズして返す。
+    カード画像を読み込み、逆位置の場合は180度回転させ、
+    その後画像サイズを50%に縮小する関数。
     """
     img = Image.open(f"cards/{card_info['key']}.jpg")
     if card_info["orientation"] == "逆位置":
@@ -111,9 +120,19 @@ def load_and_resize_card(card_info: Dict[str, str]) -> Image.Image:
 def generate_reading(chat: ChatOpenAI, selected_card: Dict[str, Any],
                      query_text: str, card_info: Dict[str, Any], pos_label: str) -> str:
     """
-    各カードの情報と質問文を基に、LLM によるリーディング（占い結果）を生成する。
+    各カードの情報と質問文をもとに、カードごとのリーディング（占い結果）を生成する関数。
+    
+    Args:
+        chat: ChatOpenAI のインスタンス
+        selected_card: シグニフィケーターとして選ばれたカード情報
+        query_text: ユーザーの質問文（日本語）
+        card_info: 対象カードの情報（名前、向き、説明文など）
+        pos_label: カードの位置（例：「現状」「未来」など）
+        
+    Returns:
+        生成されたリーディング結果（文字列）
     """
-    full_prompt = f"""\
+    prompt = f"""\
 significator = {selected_card["name"]}
 query_text = {query_text}
 
@@ -124,14 +143,13 @@ query_text = {query_text}
 説明文:
 {card_info["description"]}
 
-上記のカードの意味と位置を踏まえ、質問内容に対するリーディングを詳しく解説してください。
-改行を適宜入れ、読みやすい文章にしてください。
-回答に表題は不要です。
+上記カードの意味と位置を踏まえ、質問内容に対するリーディングを詳しく解説してください。
+改行を適宜入れ、読みやすい文章にしてください。回答に表題は不要です。
 回答はすべて日本語でお願いします。
 """
     response: AIMessage = chat.invoke([
         SystemMessage(content=SYSTEM_PROMPT),
-        HumanMessage(content=full_prompt)
+        HumanMessage(content=prompt)
     ])
     return response.content
 
@@ -139,13 +157,13 @@ def generate_conclusion(chat: ChatOpenAI, selected_card: Dict[str, Any],
                         query_text: str, all_cards: List[Dict[str, Any]],
                         position_labels: List[str]) -> str:
     """
-    全体のスプレッド情報を元に、LLM によって結論を生成する。
+    全カード（シグニフィケーター＋スプレッド）の情報から全体の結論を生成する関数。
     """
     summary = f"significator = {selected_card['name']}\nquery_text = {query_text}\n\n[スプレッド概要]\n"
     for c in all_cards:
         label = position_labels[c["index"]] if c["index"] < len(position_labels) else f"{c['index']}枚目"
         summary += f"・{label}: {c['name']} ({c['orientation']})\n"
-    summary += "\n上記を踏まえた結論を、わかりやすいていねいな日本語でお願いします。"
+    summary += "\n上記を踏まえた結論を、わかりやすいていねいな日本語でお願いします。回答に表題は不要です。"
     response: AIMessage = chat.invoke([
         SystemMessage(content=SYSTEM_PROMPT),
         HumanMessage(content=summary)
@@ -156,25 +174,88 @@ def generate_advice(chat: ChatOpenAI, selected_card: Dict[str, Any],
                     query_text: str, all_cards: List[Dict[str, Any]],
                     conclusion: str, position_labels: List[str]) -> str:
     """
-    全体のスプレッド情報と先に生成された結論を踏まえて、LLM によって実践的なアドバイスを生成する。
+    全カードと先に生成した結論をもとに、実践的なアドバイスを生成する関数。
     """
     summary = f"significator = {selected_card['name']}\nquery_text = {query_text}\n\n[スプレッド概要]\n"
     for c in all_cards:
         label = position_labels[c["index"]] if c["index"] < len(position_labels) else f"{c['index']}枚目"
         summary += f"・{label}: {c['name']} ({c['orientation']})\n"
-    summary += f"\n上記の流れと以下の結論をふまえて、実践的なアドバイスを、わかりやすいていねいな日本語でお願いします。\n結論: {conclusion}"
+    summary += (
+        f"\n上記の流れと以下の結論をふまえて、実践的なアドバイスを、わかりやすいていねいな日本語でお願いします。"
+        f"回答に表題は不要です。\n結論: {conclusion}"
+    )
     response: AIMessage = chat.invoke([
         SystemMessage(content=SYSTEM_PROMPT),
         HumanMessage(content=summary)
     ])
     return response.content
 
-# -------------------------------
-# メイン処理（ユーザーが「占う」ボタンを押した場合）
-# -------------------------------
+def img_to_base64(path: str) -> str:
+    """
+    画像ファイルをBase64エンコードして、HTML埋め込み用の文字列を返す関数。
+    """
+    with open(path, "rb") as f:
+        return base64.b64encode(f.read()).decode("utf-8")
+
+def render_layout_css(layout: str) -> None:
+    """
+    配置レイアウト（"right" または "left"）に応じたCSSスタイルを定義する関数。
+    レイアウトによってカードの配置位置が異なります。
+    """
+
+    # 共通のCSS
+    css1 = """
+<style>
+.celtic-cross-container {
+    position: relative;
+    width: 704px;
+    height: 556px;
+    margin: 0 auto 10px;
+    border: 1px solid #ccc;
+}
+.card-position { position: absolute; }
+.card-position img {
+    width: 70px;
+    height: auto;
+    border: 1px solid black;
+    filter: drop-shadow(0px 0px 3px darkgray);
+}
+.card-pos0 { top: 41%; left: 33%; }
+.card-pos1 { top: 40%; left: 34%; }
+.card-pos2 { top: 41%; left: 33.5%; transform: rotate(-90deg); }
+.card-pos3 { top: 4%; left: 33%; }
+.card-pos4 { top: 76%; left: 33%; }
+
+.card-pos7 { top: 76%; left: 86%; }
+.card-pos8 { top: 52%; left: 86%; }
+.card-pos9 { top: 28%; left: 86%; }
+.card-pos10 { top: 4%; left: 86%; }
+    """
+
+    # シグニフィケーターの見ている方向によって位置が変わるカードのCSS
+    if layout == "right":
+        css2 = """
+.card-pos5 { top: 41%; left: 61%; }
+.card-pos6 { top: 41%; left: 4%; }
+        """
+    else:
+        css2 = """
+.card-pos6 { top: 41%; left: 61%; }
+.card-pos5 { top: 41%; left: 4%; }
+        """
+
+    css3 = """
+</style>
+    """
+    st.markdown(css1 + css2 + css3, unsafe_allow_html=True)
+
+# =============================================================================
+# メイン処理（ユーザーが「占う」ボタンを押下したとき）
+# =============================================================================
 if st.button("占う"):
     st.divider()
     st.header("選ばれたカードの一覧")
+    
     # ChatOpenAI のインスタンスを生成
     chat = ChatOpenAI(
         model_name=MODEL,
@@ -183,26 +264,24 @@ if st.button("占う"):
         temperature=TEMPERATURE
     )
 
-    # ユーザーの質問文を英語に翻訳
+    # ユーザーの質問文を英語に翻訳して、カード選択のための基準とする
     translated_query = translate_query(query_text, chat)
-    
-    # 占い対象の候補カードキーを取得し、候補カードリストを作成
     candidate_keys = get_candidate_keys()
     candidate_cards = [(key, tarot_cards[key]) for key in candidate_keys]
-    # 質問文とカード説明の共通単語数で最も合致するカードを選ぶ（シグニフィケーター）
     sig_key, selected_card = choose_card(candidate_cards, translated_query)
     
-    # シグニフィケーター以外のカードからランダムに10枚選び、スプレッドを生成
+    # シグニフィケーター以外のカードからランダムに10枚を選び、スプレッドを作成
     spread = generate_spread(sig_key)
     
-    # 各カードの位置ラベルを定義
+    # 各カードの配置位置ラベル（シグニフィケーター＋10枚のカード）
     position_labels = ["シグニフィケーター", "現状", "試練", "目標", "原因", "過去", "未来", "本音", "周囲", "予測", "結果"]
-
-    # シグニフィケーターカードとスプレッドのカードをまとめる
+    
+    # シグニフィケーターとスプレッドのカード情報を統合（index, key, name, orientation, description）
     all_cards = [{
         "index": 0,
         "key": sig_key,
         "name": selected_card["name"],
+        "looking": selected_card["looking"],
         "orientation": "正位置",  # シグニフィケーターは常に正位置
         "description": selected_card["description"]
     }] + [{
@@ -213,53 +292,37 @@ if st.button("占う"):
         "description": card["card"]["description"]
     } for card in spread]
 
-    # 各カードが逆位置の場合、CSS の transform 用の回転値を設定
-    rotations = ["rotate(180deg)" if card["orientation"] == "逆位置" else "rotate(0deg)" for card in all_cards]
-
-    # 画像ファイルを Base64 エンコードする関数（HTML に埋め込むため）
-    def img_to_base64(path):
-        with open(path, "rb") as f:
-            return base64.b64encode(f.read()).decode("utf-8")
-    # 各カード画像を Base64 に変換
+    # 各カードが逆位置の場合、CSS 用の回転情報を設定
+    rotations = [
+        "rotate(180deg)" if card["orientation"] == "逆位置" else "rotate(0deg)"
+        for card in all_cards
+    ]
+    
+    # 各カードの画像を Base64 エンコードして HTML 用文字列に変換
     selected_cards_base64 = [img_to_base64(f"cards/{card['key']}.jpg") for card in all_cards]
-
-    # CSS によるケルト十字レイアウトの定義
-    st.markdown("""
-    <style>
-    .celtic-cross-container {position: relative; width: 704px; height: 556px; margin: 0 auto 10px; border: 1px solid #ccc;}
-    .card-position {position: absolute;}
-    .card-position img {width: 70px; height: auto; border: 1px solid black; filter: drop-shadow(0px 0px 3px darkgray);}
-
-    .card-pos0 {top: 41%; left: 33%; transform: translate(0, 0);}
-    .card-pos1 {top: 40%; left: 34%; transform: translate(0, 0);}
-    .card-pos2 {top: 41%; left: 33.5%; transform: translate(0, 0) rotate(-90deg);}
-    .card-pos3 {top: 4%; left: 33%; transform: translate(0, 0);}
-    .card-pos4 {top: 76%; left: 33%; transform: translate(0, 0);}
-    .card-pos5 {top: 41%; left: 61%; transform: translate(0, 0);}
-    .card-pos6 {top: 41%; left: 4%; transform: translate(0, 0);}
-    .card-pos7 {top: 76%; left: 86%; transform: translate(0, 0);}
-    .card-pos8 {top: 52%; left: 86%; transform: translate(0, 0);}
-    .card-pos9 {top: 28%; left: 86%; transform: translate(0, 0);}
-    .card-pos10 {top: 4%; left: 86%; transform: translate(0, 0);}
-    </style>
-    """, unsafe_allow_html=True)
-
-    # 各カードの HTML タグを生成（Base64 画像と回転情報を適用）
+    
+    # レイアウト決定：カードの "looking" 属性が "right" か "left" であればその値を、なければランダムで選択
+    layout = all_cards[0]["looking"] if all_cards[0]["looking"] in ["right", "left"] else random.choice(["right", "left"])
+    render_layout_css(layout)
+    
+    # HTML を生成して、各カード画像を配置
     celtic_html = "".join([
         f'<div class="card-position card-pos{i}">'
         f'<img src="data:image/jpeg;base64,{selected_cards_base64[i]}" alt="card{i}" style="transform: {rotations[i]};">'
         f'</div>' for i in range(len(selected_cards_base64))
     ])
-    # ケルト十字レイアウトのコンテナに HTML を埋め込み
     st.markdown(f'<div class="celtic-cross-container">{celtic_html}</div>', unsafe_allow_html=True)
-
-    # カードのリストを表示
-    card_list = [f"**{position_labels[card['index']]}:** {card['name']} ({card['orientation']})" for card in all_cards]
+    
+    # カードリスト（配置ラベルとカード名、向き）の表示
+    card_list = [
+        f"**{position_labels[card['index']]}:** {card['name']} ({card['orientation']})"
+        for card in all_cards
+    ]
     st.markdown("<br>".join(card_list), unsafe_allow_html=True)
-
+    
     st.divider()
-    # 各カードごとのリーディング（占い結果）を生成・表示
     st.header("各カードのリーディング")
+    # 各カードについて、リーディング（占い結果）を生成して表示
     for card in all_cards:
         pos_label = position_labels[card["index"]] if card["index"] < len(position_labels) else f"{card['index']}枚目"
         reading = generate_reading(chat, selected_card, query_text, card, pos_label)
@@ -267,14 +330,14 @@ if st.button("占う"):
         st.image(load_and_resize_card(card), caption=f'{card["name"]} ({card["orientation"]})')
         st.write(reading)
         st.divider()
-
-    # 全体の結論を生成し、表示する
+    
+    # 全体の結論を生成して表示
     st.header("結論")
     conclusion = generate_conclusion(chat, selected_card, query_text, all_cards, position_labels)
     st.write(conclusion)
-
+    
     st.divider()
-    # 全体のアドバイスを生成し、表示する
+    # 結論と全体スプレッドをもとに、実践的なアドバイスを生成して表示
     st.header("アドバイス")
     advice = generate_advice(chat, selected_card, query_text, all_cards, conclusion, position_labels)
     st.write(advice)

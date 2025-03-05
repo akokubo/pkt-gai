@@ -1,7 +1,7 @@
 # 生成AIタロット占いアプリ
 アーサー・E・ウェイト『タロット図解』に基づいてケルト十字法で、ライダー社のウェイト=スミス版デッキを用いて、生成AIが占います。
 
-<img src="images/pkt-spread.jpg" width="100%" alt="生成AIタロット占いアプリ">
+<img src="images/pkt-gai.jpg" width="100%" alt="生成AIタロット占いアプリ">
 
 
 ## 使用したもの
@@ -59,6 +59,8 @@ ollama list
 ```
 python3 -m streamlit run app.py
 ```
+
+<img src="images/pkt-spread.jpg" width="100%" alt="生成AIタロット占いアプリ">
 
 ## 作者
 [小久保 温(こくぼ・あつし)](https://akokubo.github.io/)
