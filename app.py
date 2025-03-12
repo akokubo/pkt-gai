@@ -12,7 +12,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 # =============================================================================
 # 基本設定（モデル、API設定、プロンプトなど）
 # =============================================================================
-MODEL = "lucas2024/gemma-2-2b-jpn-it:q8_0"  # 使用する生成モデル
+MODEL = "gemma3"  # 使用する生成モデル
 BASE_URL = "http://localhost:11434/v1"       # API のベース URL
 OPENAI_API_KEY = "ollama"                    # API キー
 TEMPERATURE = 0.9                            # 生成時のランダム度（温度）
