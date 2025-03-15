@@ -58,7 +58,7 @@ def translate_query(query: str, chat: ChatOpenAI) -> str:
     """
     prompt = f"次の日本語を英語に訳してください。訳した文章だけを返してください：\n\n{query}"
     response: AIMessage = chat.invoke([HumanMessage(content=prompt)])
-    return response.content.strip()
+    return response.content.replace("\u3000", " ").strip()
 
 def choose_card(cards: List[Tuple[str, Dict[str, Any]]], query: str) -> Tuple[str, Dict[str, Any]]:
     """
@@ -171,7 +171,7 @@ query_text = {query_text}
         SystemMessage(content=SYSTEM_PROMPT),
         HumanMessage(content=prompt)
     ])
-    return response.content
+    return response.content.replace("\u3000", " ")
 
 def generate_conclusion(chat: ChatOpenAI, selected_card: Dict[str, Any],
                         query_text: str, all_cards: List[Dict[str, Any]],
@@ -188,7 +188,7 @@ def generate_conclusion(chat: ChatOpenAI, selected_card: Dict[str, Any],
         SystemMessage(content=SYSTEM_PROMPT),
         HumanMessage(content=summary)
     ])
-    return response.content
+    return response.content.replace("\u3000", " ")
 
 def generate_advice(chat: ChatOpenAI, selected_card: Dict[str, Any],
                     query_text: str, all_cards: List[Dict[str, Any]],
@@ -208,7 +208,7 @@ def generate_advice(chat: ChatOpenAI, selected_card: Dict[str, Any],
         SystemMessage(content=SYSTEM_PROMPT),
         HumanMessage(content=summary)
     ])
-    return response.content
+    return response.content.replace("\u3000", " ")
 
 def img_to_base64(path: str) -> str:
     """
