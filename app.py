@@ -12,7 +12,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 # =============================================================================
 # 基本設定（モデル、API設定、プロンプトなど）
 # =============================================================================
-MODEL = "gemma3"  # 使用する生成モデル
+MODEL = "gemma3:4b-it-qat"  # 使用する生成モデル
 BASE_URL = "http://localhost:11434/v1"       # API のベース URL
 OPENAI_API_KEY = "ollama"                    # API キー
 TEMPERATURE = 0.9                            # 生成時のランダム度（温度）
@@ -58,7 +58,7 @@ def translate_query(query: str, chat: ChatOpenAI) -> str:
     """
     prompt = f"次の日本語を英語に訳してください。訳した文章だけを返してください：\n\n{query}"
     response: AIMessage = chat.invoke([HumanMessage(content=prompt)])
-    return response.content.replace("\u3000", " ").strip()
+    return response.content.strip()
 
 def choose_card(cards: List[Tuple[str, Dict[str, Any]]], query: str) -> Tuple[str, Dict[str, Any]]:
     """
@@ -171,7 +171,7 @@ query_text = {query_text}
         SystemMessage(content=SYSTEM_PROMPT),
         HumanMessage(content=prompt)
     ])
-    return response.content.replace("\u3000", " ")
+    return response.content
 
 def generate_conclusion(chat: ChatOpenAI, selected_card: Dict[str, Any],
                         query_text: str, all_cards: List[Dict[str, Any]],
@@ -188,7 +188,7 @@ def generate_conclusion(chat: ChatOpenAI, selected_card: Dict[str, Any],
         SystemMessage(content=SYSTEM_PROMPT),
         HumanMessage(content=summary)
     ])
-    return response.content.replace("\u3000", " ")
+    return response.content
 
 def generate_advice(chat: ChatOpenAI, selected_card: Dict[str, Any],
                     query_text: str, all_cards: List[Dict[str, Any]],
@@ -208,7 +208,7 @@ def generate_advice(chat: ChatOpenAI, selected_card: Dict[str, Any],
         SystemMessage(content=SYSTEM_PROMPT),
         HumanMessage(content=summary)
     ])
-    return response.content.replace("\u3000", " ")
+    return response.content
 
 def img_to_base64(path: str) -> str:
     """
