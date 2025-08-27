@@ -1,0 +1,86 @@
+{
+  "orient_label": {
+    "upright": "正位置(upright)",
+    "reversed": "逆位置(reversed)"
+  },
+  "recurrence": {
+    "en": {
+      "upright": {
+        "King":  {"4":"great honour","3":"consultation","2":"minor counsel"},
+        "Queen": {"4":"great debate","3":"deception by women","2":"sincere friends"},
+        "Knight":{"4":"serious matters","3":"lively debate","2":"intimacy"},
+        "Page":  {"4":"dangerous illness","3":"dispute","2":"disquiet"},
+        "Ten":   {"4":"condemnation","3":"new condition","2":"change"},
+        "Nine":  {"4":"a good friend","3":"success","2":"receipt"},
+        "Eight": {"4":"reverse","3":"marriage","2":"new knowledge"},
+        "Seven": {"4":"intrigue","3":"infirmity","2":"news"},
+        "Six":   {"4":"abundance","3":"success","2":"irritability"},
+        "Five":  {"4":"regularity","3":"determination","2":"vigils"},
+        "Four":  {"4":"journey near at hand","3":"a subject of reflection","2":"insomnia"},
+        "Three": {"4":"progress","3":"unity","2":"calm"},
+        "Two":   {"4":"contention","3":"security","2":"accord"},
+        "Ace":   {"4":"favourable chance","3":"small success","2":"trickery"}
+      },
+      "reversed": {
+        "King":  {"4":"celerity","3":"commerce","2":"projects"},
+        "Queen": {"4":"bad company","3":"gluttony","2":"work"},
+        "Knight":{"4":"alliance","3":"a duel, or personal encounter","2":"susceptibility"},
+        "Page":  {"4":"privation","3":"idleness","2":"society"},
+        "Ten":   {"4":"event, happening","3":"disappointment","2":"expectation justified"},
+        "Nine":  {"4":"usury","3":"imprudence","2":"a small profit"},
+        "Eight": {"4":"error","3":"a spectacle","2":"misfortune"},
+        "Seven": {"4":"quarrellers","3":"joy","2":"women of no repute"},
+        "Six":   {"4":"care","3":"satisfaction","2":"downfall"},
+        "Five":  {"4":"order","3":"hesitation","2":"reverse"},
+        "Four":  {"4":"walks abroad","3":"disquiet","2":"dispute"},
+        "Three": {"4":"great success","3":"serenity","2":"Safety"},
+        "Two":   {"4":"reconciliation","3":"apprehension","2":"mistrust"},
+        "Ace":   {"4":"dishonour","3":"debauchery","2":"enemies"}
+      }
+    },
+    "ja": {
+      "upright": {
+        "King":  {"4":"大きな名誉","3":"協議（相談）","2":"小さな助言"},
+        "Queen": {"4":"大きな議論","3":"女性による欺き","2":"誠実な友人"},
+        "Knight":{"4":"重大な事柄","3":"活発な議論","2":"親密さ"},
+        "Page":  {"4":"危険な病気","3":"争い","2":"不安"},
+        "Ten":   {"4":"非難","3":"新しい状況","2":"変化"},
+        "Nine":  {"4":"良き友人","3":"成功","2":"受け取り（領収）"},
+        "Eight": {"4":"逆転（逆風）","3":"結婚","2":"新しい知識"},
+        "Seven": {"4":"陰謀","3":"虚弱・不調","2":"知らせ"},
+        "Six":   {"4":"豊かさ","3":"成功","2":"苛立ち"},
+        "Five":  {"4":"規則性","3":"決意","2":"徹夜・看護"},
+        "Four":  {"4":"近場への旅","3":"思索の主題","2":"不眠"},
+        "Three": {"4":"前進","3":"結束（統一）","2":"平静"},
+        "Two":   {"4":"争論","3":"安全","2":"合意"},
+        "Ace":   {"4":"好機","3":"小さな成功","2":"策略（手管）"}
+      },
+      "reversed": {
+        "King":  {"4":"迅速","3":"商取引","2":"企画"},
+        "Queen": {"4":"悪い仲間","3":"大食（放縦）","2":"労働"},
+        "Knight":{"4":"同盟","3":"決闘／直接対決","2":"感受性の強さ"},
+        "Page":  {"4":"欠乏","3":"怠惰","2":"社交"},
+        "Ten":   {"4":"出来事（発生）","3":"失望","2":"期待の成就"},
+        "Nine":  {"4":"高利（高利貸し）","3":"軽率","2":"わずかな利益"},
+        "Eight": {"4":"誤り","3":"見世物（光景）","2":"不運"},
+        "Seven": {"4":"口論好き","3":"歓喜","2":"評判の良くない女性"},
+        "Six":   {"4":"心配り（配慮）","3":"満足","2":"失墜"},
+        "Five":  {"4":"秩序","3":"逡巡（ためらい）","2":"逆転（逆境）"},
+        "Four":  {"4":"戸外の散策","3":"不安","2":"口論"},
+        "Three": {"4":"大成功","3":"静穏","2":"安全"},
+        "Two":   {"4":"和解","3":"不安感","2":"不信"},
+        "Ace":   {"4":"不名誉","3":"放蕩","2":"敵対者"}
+      }
+    }
+  },
+  "rank_plural": {
+    "Ace":"Aces","Two":"Twos","Three":"Threes","Four":"Fours","Five":"Fives","Six":"Sixes",
+    "Seven":"Sevens","Eight":"Eights","Nine":"Nines","Ten":"Tens",
+    "Page":"Pages","Knight":"Knights","Queen":"Queens","King":"Kings"
+  },
+  "rank_ja": {
+    "Ace":"エース","Two":"2","Three":"3","Four":"4","Five":"5","Six":"6",
+    "Seven":"7","Eight":"8","Nine":"9","Ten":"10",
+    "Page":"ペイジ","Knight":"ナイト","Queen":"クイーン","King":"キング"
+  }
+}
