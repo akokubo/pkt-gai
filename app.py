@@ -5,11 +5,11 @@ Streamlit: 古代ケルト十字法タロット占い（A.E.ウェイト『タ�
 - LLM の設定は WSL / macOS × Ollama / LM Studio を引数または環境変数で切替
 - 定数は data/tarot_meta.json、カード定義は data/tarot_cards.json
 - 入力は Streamlit の form を使用（Enter 送信可）
-- 象徴カード（シグニフィケーター）は向きを表示しない
+- 象徴カード（シグニフィケーター）には逆位置はないものとする
 - 逆位置は CSS transform: rotate で表現
-- 自分に関する質問なら象徴カードはコート（宮廷）カードから選定
-- それ以外は TF-IDF 類似度で選定
-- 各カード／まとめ／アドバイスを LLM でストリーム生成
+- 自分自身に関する質問は、象徴カードをコート（宮廷）カードから、TF-IDF類似度で選定
+- 自分自身に関することでない質問は、象徴カードを全カードから、TF-IDF類似度で選定
+- 各カードの解釈／まとめ／アドバイスを LLM でストリーム生成
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ from datetime import datetime
 from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union, TypedDict
 
 import streamlit as st
-from langchain.schema import AIMessage, BaseMessage, HumanMessage, SystemMessage
+from langchain.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
@@ -35,9 +35,9 @@ from sklearn.metrics.pairwise import cosine_similarity
 # ========================= 型定義 =========================
 
 class Card(TypedDict, total=False):
-    """1枚のカード定義（JSON由来）"""
+    """カード1枚の定義"""
     index: int                # 0..77
-    img_id: str               # "00".."77"
+    img_id: str               # 画像ファイル名 "00".."77"
     japanese_name: str        # 日本語名
     name: str                 # 英語名
     looking: str              # 視線の向き "right" | "left" | "unclear"
@@ -47,7 +47,7 @@ class Card(TypedDict, total=False):
 
 
 class DealtCard(TypedDict):
-    """スプレッドに配置されたカード情報（描画・LLM用）"""
+    """スプレッドに配置されたカード"""
     index: int                # スプレッド内の位置（0 は象徴カード）
     img_id: str
     japanese_name: str
@@ -123,7 +123,7 @@ def detect_platform() -> str:
 
 def parse_args() -> argparse.Namespace:
     """
-    streamlit 経由（余計な引数付き）でもおかしくならないように parse_known_args
+    streamlit 経由で、余計な引数があってもおかしくならないように parse_known_args
     を使用してコマンドライン引数を解釈する。
     """
     parser = argparse.ArgumentParser(add_help=False)
@@ -139,7 +139,7 @@ def parse_args() -> argparse.Namespace:
 
 def resolve_llm_config() -> Tuple[str, str, str, float, str, str]:
     """
-    LLM 接続設定を決定する。
+    LLM 接続設定を行う。
     優先順位: コマンドライン引数 > 環境変数 > デフォルト
 
     Returns:
@@ -155,13 +155,13 @@ def resolve_llm_config() -> Tuple[str, str, str, float, str, str]:
         default_key = "ollama"
     else:
         if platform == "macos":
-            default_model = "gemma3-4b-it-qat"
+            default_model = "mlx-community/gemma-3-4b-it-qat"
             default_base = "http://localhost:1234/v1"
         elif platform == "wsl":
-            default_model = "google/gemma-3-4b"
+            default_model = "gemma-3-4b-it-qat"
             default_base = f"http://{get_windows_host_ip()}:1234/v1"
         else:
-            default_model = "gemma3-4b-it-qat"
+            default_model = "gemma-3-4b-it-qat"
             default_base = "http://localhost:1234/v1"
         default_key = "lmstudio"
 
@@ -194,7 +194,7 @@ def load_tarot_meta(path: str = "data/tarot_meta.json") -> Dict[str, Any]:
         path: JSON ファイルパス
 
     Returns:
-        メタ情報ディクショナリ（失敗時は空）
+        メタ情報ディクショナリ（読み込めなかった時は空）
     """
     try:
         with open(path, "r", encoding="utf-8") as f:
@@ -217,10 +217,10 @@ ORIENT_LABEL: Dict[str, str] = _meta.get(
 
 def _normalize_item(raw: Union[str, Dict[str, Any]]) -> Optional[Card]:
     """
-    JSON 要素（str or dict）を Card 形式に正規化する。
+    JSON の要素（str or dict）を Card 形式に正規化する。
 
     Returns:
-        正常化済み Card / 不正なら None
+        正規化済み Card / 変換できなかった場合は None
     """
     try:
         item: Dict[str, Any] = json.loads(raw) if isinstance(raw, str) else raw
@@ -244,7 +244,7 @@ def _normalize_item(raw: Union[str, Dict[str, Any]]) -> Optional[Card]:
 def load_tarot_cards(path: str = "data/tarot_cards.json") -> List[Card]:
     """
     カード定義のリストを JSON から読み込み、index 昇順で返す。
-    不正要素はスキップし、件数を警告表示する。
+    不正な要素はスキップし、件数を警告表示する。
     """
     try:
         with open(path, "r", encoding="utf-8") as f:
@@ -296,8 +296,8 @@ cards_db: List[Card] = load_tarot_cards()
 
 st.title("生成AIによるタロット占い")
 st.text("LLMによる古代ケルト十字法タロット占い。")
-st.text("ウェイト=スミス版タロットを用い、A.E.ウェイト『タロット図解』に基づき占います。")
-st.image("images/pkt-gai.jpg", use_container_width=True)
+st.text("ウェイト=スミス版タロットを用い、A.E.ウェイト『タロット図解』に基づいてリーディングします。")
+st.image("images/pkt-gai.jpg", width="stretch")
 
 
 # ========================= 入力（フォーム） =========================
@@ -328,7 +328,7 @@ def reset_all() -> None:
         st.cache_resource.clear()
     except Exception:
         pass
-    st.experimental_rerun()
+    st.rerun()
 
 
 # ========================= LLM ユーティリティ =========================
@@ -338,14 +338,15 @@ def build_llm() -> ChatOpenAI:
     LangChain の ChatOpenAI を構築する。
     """
     return ChatOpenAI(
-        model_name=MODEL,
-        openai_api_base=BASE_URL,
-        openai_api_key=OPENAI_API_KEY,  # ダミーでも可
+        model=MODEL,
+        base_url=BASE_URL,
         temperature=TEMPERATURE,
+        api_key=OPENAI_API_KEY,
     )
 
 
-def stream_chat(chat: ChatOpenAI, messages: List[BaseMessage]) -> Iterator[str]:
+def stream_chat(chat: ChatOpenAI, messages: List[Union[HumanMessage, AIMessage, SystemMessage]],
+) -> Iterator[str]:
     """
     ChatOpenAI.stream による逐次出力をジェネレータで返す。
     """
@@ -373,7 +374,7 @@ def write_stream(text_iter: Iterable[str]) -> str:
 
 def translate_query(query: str, chat: ChatOpenAI) -> str:
     """
-    日本語の質問を英訳する（TF-IDFで類似度計算のため）。
+    日本語の質問を英訳する（英文との類似度計算のため）。
     """
     if not query.strip():
         return ""
@@ -390,7 +391,7 @@ def is_court_of_rank(card_name: str, rank: str) -> bool:
 def get_candidate_cards(self_flag: bool, sex: str, over_40: bool) -> List[Card]:
     """
     象徴カードの候補を返す。
-    自分に関する占いなら年齢と性別でコートカードを絞り込み。
+    自分に関する占いなら年齢と性別でコートカードを絞り込む。
     """
     if not self_flag:
         return cards_db
@@ -410,10 +411,6 @@ def get_candidate_cards(self_flag: bool, sex: str, over_40: bool) -> List[Card]:
 
 
 def choose_card(candidates: List[Card], query_en: str) -> Card:
-    """
-    TF-IDF 類似度で query_en に最も近い候補カードを 1 枚返す。
-    質問が空の場合はランダム。
-    """
     if not candidates:
         return {}  # type: ignore[return-value]
     if not query_en.strip():
@@ -421,21 +418,15 @@ def choose_card(candidates: List[Card], query_en: str) -> Card:
 
     corpus = [c.get("symbol", "") for c in candidates] + [query_en]
     vec = TfidfVectorizer().fit(corpus)
-    qv = vec.transform([query_en])
-
-    best_score = -1.0
-    best = candidates[0]
-    for c in candidates:
-        score = float(cosine_similarity(qv, vec.transform([c.get("symbol", "")]))[0][0])
-        if score > best_score:
-            best_score = score
-            best = c
-    return best
-
+    M = vec.transform([c.get("symbol", "") for c in candidates])  # (N, d)
+    q = vec.transform([query_en])                                  # (1, d)
+    sims = (M @ q.T).toarray().ravel()                             # 形状(N,)
+    best_idx = int(sims.argmax())
+    return candidates[best_idx]
 
 def generate_spread(sig_img_id: str) -> List[Dict[str, Union[Card, str, int]]]:
     """
-    象徴カード以外から 10 枚をランダム選択し、正逆をランダムに付与する。
+    象徴カード以外から 10 枚をランダムに選択し、正位置と逆位置をランダムに決める。
     """
     pool = [c for c in cards_db if c["img_id"] != sig_img_id]
     chosen = random.sample(pool, 10)
@@ -449,7 +440,7 @@ def generate_spread(sig_img_id: str) -> List[Dict[str, Union[Card, str, int]]]:
 
 def render_layout_css(layout: str) -> None:
     """
-    古代ケルト十字法の CSS を挿入。
+    古代ケルト十字法スプレッドの CSS を挿入。
     象徴カードの視線の向きlooking（right/left）に応じて 5 枚目／6 枚目の左右を入替。
     """
     base_css = """
@@ -507,7 +498,7 @@ def reading_stream(
         + "カードが象徴するもの:\n"
         + symbol_text + "\n"
         + (f"このカードの{orient_text}でのリーディングにおける意味:\n{selected_meaning}\n" if selected_meaning else "")
-        + f"\n今回のスプレッド全体の象徴カード(Significator): {sig_jp}({sig_en})\n\n"
+        + f"\n今回のスプレッド全体に関する象徴カード(Significator): {sig_jp}({sig_en})\n\n"
         "上記カードの意味と位置を踏まえ、質問内容に対するリーディングを簡潔に短く解説してください。\n"
         "改行を適宜入れ、読みやすい文章にしてください。回答に表題は不要です。\n"
         "回答はすべて日本語でお願いします。\n"
@@ -645,7 +636,7 @@ if submitted:
     layout = layout if layout in ["right", "left"] else random.choice(["right", "left"])
     render_layout_css(layout)
 
-    # 盤面を描画
+    # スプレッドを描画
     board_html: str = "".join(
         '<div class="card-position card-pos{idx}"><img src="data:image/png;base64,{img}" alt="card{idx}" style="transform:{rot};" /></div>'.format(  # noqa: E501
             idx=i, img=b64_images[i], rot=rotations[i]
@@ -655,7 +646,7 @@ if submitted:
     st.markdown(f'<div class="celtic-cross-container">{board_html}</div>', unsafe_allow_html=True)
 
     def card_line(c: DealtCard) -> str:
-        """1行のカード表示テキスト（位置ラベル + 名称 + 向き）"""
+        """カード情報の1行表示（位置ラベル + 名称 + 向き）"""
         idx = c.get("index", 0)
         jp = c.get("japanese_name", "")
         en = c.get("name", "")
@@ -716,5 +707,4 @@ if submitted:
     # ---------- リセット ----------
 
     st.divider()
-    if st.button("🧹 もう一度占う"):
-        reset_all()
+    st.html('<a href="/" style="display:inline-block; padding: 0.5em 1em; border: 1px solid #ccc; border-radius: 0.3em; text-decoration: none;">もう一度占う</a>')
