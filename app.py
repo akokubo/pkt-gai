@@ -34,6 +34,9 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import Runnable, RunnableConfig
 from langchain_openai import ChatOpenAI
 
+import requests  # ← 追加
+
+
 # ========================= 型定義 =========================
 
 class Card(TypedDict, total=False):
@@ -115,12 +118,42 @@ def get_windows_host_ip() -> str:
 
 
 def detect_platform() -> str:
-    """実行プラットフォームを識別する。"""
-    if is_macos():
-        return "macos"
+    """
+    実行プラットフォームのデフォルト値を決める。
+    - WSL 環境なら "wsl"
+    - macOS なら "macos"
+    - それ以外はひとまず "wsl" 扱い（必要なら拡張）
+    """
     if is_wsl():
         return "wsl"
-    return sys.platform  # "linux", "win32" など
+    if is_macos():
+        return "macos"
+    return "wsl"
+
+
+def default_base_url(platform: str, backend: str) -> str:
+    """
+    base_url のデフォルト
+      - backend が ollama:
+          http://localhost:11434/v1
+      - platform が wsl & backend が lmstudio:
+          http://{get_windows_host_ip()}:1234/v1
+      - それ以外:
+          http://localhost:1234/v1
+    """
+    backend = backend.lower()
+    platform = platform.lower()
+
+    # 1. Ollama はポート 11434 固定
+    if backend == "ollama":
+        return "http://localhost:11434/v1"
+
+    # 2. WSL + LM Studio は Windows ホスト側の 1234
+    if platform == "wsl" and backend == "lmstudio":
+        return f"http://{get_windows_host_ip()}:1234/v1"
+
+    # 3. それ以外（macOS など）は localhost:1234/v1
+    return "http://localhost:1234/v1"
 
 
 def parse_args() -> argparse.Namespace:
@@ -129,10 +162,12 @@ def parse_args() -> argparse.Namespace:
     を使用してコマンドライン引数を解釈する。
     """
     parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--platform", choices=["wsl", "macos"],
+                        help="実行プラットフォーム (wsl or macos)")
     parser.add_argument("--backend", choices=["ollama", "lmstudio"],
                         help="LLM backend (ollama or lmstudio)")
-    parser.add_argument("--model", help="Model name (override)")
     parser.add_argument("--base_url", help="Base URL of the OpenAI-compatible API (override)")
+    parser.add_argument("--model", help="Model name (override)")
     parser.add_argument("--api_key", help="API key (override)")
     parser.add_argument("--temperature", type=float, help="Sampling temperature")
     args, _ = parser.parse_known_args(sys.argv[1:])
@@ -142,46 +177,105 @@ def parse_args() -> argparse.Namespace:
 def resolve_llm_config() -> Tuple[str, str, str, float, str, str]:
     """
     LLM 接続設定を行う。
-    優先順位: コマンドライン引数 > 環境変数 > デフォルト
+    優先順位: アプリのデフォルト < 環境変数 < コマンドライン引数
 
     Returns:
         (model, base_url, api_key, temperature, backend, platform)
     """
     args = parse_args()
-    platform = detect_platform()
 
-    # ★ デフォルト backend を lmstudio に変更
-    backend = (args.backend or os.getenv("LLM_BACKEND", "")).strip().lower() or "lmstudio"
+    # 1. アプリのデフォルト
+    platform_default = detect_platform()               # "wsl" or "macos"
+    backend_default = "lmstudio"
+    model_default = "gemma-3-4b-it-qat"
+    api_key_default = "api_key"
+    base_url_default = default_base_url(platform_default, backend_default)
 
-    if backend == "ollama":
-        # （必要なら ollama 用のデフォルトも残しておく）
-        default_model = "gemma3:4b-it-qat"
-        default_base = "http://localhost:11434/v1"
-        default_key = "ollama"
-    else:
-        # ★ lmstudio を前提としたデフォルト
-        default_model = "gemma-3-4b-it-qat"
+    # 2. 環境変数で上書き
+    platform_env = os.getenv("LLM_PLATFORM", platform_default)
+    backend_env = os.getenv("LLM_BACKEND", backend_default)
+    base_url_env = os.getenv("LLM_BASE_URL", "")
+    model_env = os.getenv("LLM_MODEL", model_default)
 
-        # WSL なら Windows 側の LM Studio に飛ばす
-        if is_wsl():
-            default_base = f"http://{get_windows_host_ip()}:1234/v1"
-        else:
-            # macOS / 素の Linux では localhost をデフォルトに
-            default_base = "http://localhost:1234/v1"
-
-        default_key = "lmstudio"
-
-    model = args.model or os.getenv("LLM_MODEL", default_model)
-    base_url = args.base_url or os.getenv("LLM_BASE_URL", default_base)
-    api_key = args.api_key or os.getenv("OPENAI_API_KEY", default_key)
-    temperature = args.temperature if args.temperature is not None else float(
-        os.getenv("LLM_TEMPERATURE", "0.9")
+    # API キーは LLM_API_KEY → OPENAI_API_KEY → デフォルト の順で見る
+    api_key_env = (
+        os.getenv("LLM_API_KEY")
+        or os.getenv("OPENAI_API_KEY")
+        or api_key_default
     )
+
+    # 3. コマンドラインでさらに上書き
+    platform = (args.platform or platform_env).strip().lower()
+    backend = (args.backend or backend_env).strip().lower()
+
+    # base_url は (環境変数 or デフォルト) をベースに、CLI でさらに上書き
+    base_url = base_url_env or default_base_url(platform, backend)
+    if args.base_url:
+        base_url = args.base_url
+
+    model = args.model or model_env
+    api_key = args.api_key or api_key_env
+
+    # temperature は env → CLI の順で上書き
+    temp_str = os.getenv("LLM_TEMPERATURE", "0.9")
+    try:
+        temp_default = float(temp_str)
+    except ValueError:
+        temp_default = 0.9
+    temperature = args.temperature if args.temperature is not None else temp_default
 
     return model, base_url, api_key, temperature, backend, platform
 
 
-MODEL, BASE_URL, OPENAI_API_KEY, TEMPERATURE, LLM_BACKEND, LLM_PLATFORM = resolve_llm_config()
+def check_llm_connection(base_url: str, api_key: str, backend: str, model: str) -> None:
+    """
+    /v1/models エンドポイントにアクセスして接続確認を行う。
+    接続できない / 異常な場合は st.error を表示して st.stop() する。
+    """
+    url = base_url.rstrip("/") + "/models"
+    headers: Dict[str, str] = {}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+
+    try:
+        resp = requests.get(url, headers=headers, timeout=5)
+    except requests.RequestException as e:
+        st.error(
+            "[LLM 接続エラー]\n\n"
+            f"- base_url: {base_url}\n"
+            f"- backend : {backend}\n"
+            f"- 詳細     : {e}"
+        )
+        st.stop()
+
+    if resp.status_code != 200:
+        st.error(
+            "[LLM 接続エラー]\n\n"
+            f"- base_url: {base_url}\n"
+            f"- backend : {backend}\n"
+            f"- status  : {resp.status_code}\n"
+            f"- body    : {resp.text[:200]}"
+        )
+        st.stop()
+
+    # モデル一覧に指定モデルが無ければ警告だけ出す（アプリは継続）
+    try:
+        data = resp.json()
+        models = [m.get("id") or m.get("name") for m in data.get("data", [])]
+        if model not in models:
+            st.warning(
+                f"指定されたモデル '{model}' が /models の一覧に見つかりませんでした。\n"
+                "base_url / backend / model 名をご確認ください。"
+            )
+    except Exception:
+        # JSON が想定通りでなくても致命的ではないので無視
+        pass
+
+
+# --- ここで設定を確定し、接続をチェックする ---
+
+MODEL, BASE_URL, LLM_API_KEY, TEMPERATURE, LLM_BACKEND, LLM_PLATFORM = resolve_llm_config()
+check_llm_connection(BASE_URL, LLM_API_KEY, LLM_BACKEND, MODEL)
 
 SYSTEM_PROMPT: str = (
     "あなたは、経験豊富で思慮深く、思いやりがあり、優れた直感と霊感に満ち、よく当たると評判のタロット占い師です。"
@@ -347,11 +441,13 @@ def build_llm() -> ChatOpenAI:
         model=MODEL,
         base_url=BASE_URL,
         temperature=TEMPERATURE,
-        api_key=OPENAI_API_KEY,
+        api_key=LLM_API_KEY,
     )
 
 
-def stream_chat(chat: ChatOpenAI, messages: List[Union[HumanMessage, AIMessage, SystemMessage]],
+def stream_chat(
+    chat: ChatOpenAI,
+    messages: List[Union[HumanMessage, AIMessage, SystemMessage]],
 ) -> Iterator[str]:
     """
     ChatOpenAI.stream による逐次出力をジェネレータで返す。
@@ -429,6 +525,7 @@ def choose_card(candidates: List[Card], query_en: str) -> Card:
     sims = (M @ q.T).toarray().ravel()                             # 形状(N,)
     best_idx = int(sims.argmax())
     return candidates[best_idx]
+
 
 def generate_spread(sig_img_id: str) -> List[Dict[str, Union[Card, str, int]]]:
     """
@@ -713,4 +810,7 @@ if submitted:
     # ---------- リセット ----------
 
     st.divider()
-    st.html('<a href="/" style="display:inline-block; padding: 0.5em 1em; border: 1px solid #ccc; border-radius: 0.3em; text-decoration: none;">もう一度占う</a>')
+    st.html(
+        '<a href="/" style="display:inline-block; padding: 0.5em 1em; border: 1px solid #ccc; '
+        'border-radius: 0.3em; text-decoration: none;">もう一度占う</a>'
+    )
