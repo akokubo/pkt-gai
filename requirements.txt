@@ -1,8 +1,5 @@
 streamlit
 langchain
 langchain-openai
-scikit-learn
 numpy
-pandas
-openpyxl
-watchdog
+scikit-learn

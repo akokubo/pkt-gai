@@ -47,7 +47,7 @@ source ~/.zshrc
 cd pkt-gai
 conda create -n conda-llm python=3.12
 conda activate conda-llm
-conda install numpy pandas openpyxl scikit-learn streamlit langchain langchain-openai watchdog
+conda install numpy scikit-learn streamlit langchain langchain-openai watchdog
 ```
 ## LLMのインストール
 ### LM Studioの場合
@@ -87,6 +87,11 @@ source .venv/bin/activate
 python3 -m streamlit run app.py
 ```
 
+以下のように引数を渡すことも可能
+```
+python3 -m streamlit run app.py -- --backend lmstudio --model gemma-3-4b-it-qat --temperature 0.7
+```
+
 ### macOS
 最初に、プログラムを展開したフォルダに入る。
 次に仮想環境に入っていない場合(コマンドプロンプトに(conda-llm)と表示されていないとき)、仮想環境に入る。
@@ -97,6 +102,11 @@ conda activate conda-llm
 仮想環境に入っている状態で、以下のコマンドでアプリを起動する。
 ```
 streamlit run app.py
+```
+
+以下のように引数を渡すことも可能
+```
+streamlit run app.py -- --backend lmstudio --model gemma-3-4b-it-qat --temperature 0.7
 ```
 
 <img src="images/pkt-spread.jpg" width="100%" alt="生成AIタロット占いアプリ">

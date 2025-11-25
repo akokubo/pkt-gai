@@ -26,11 +26,13 @@ from datetime import datetime
 from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union, TypedDict
 
 import streamlit as st
-from langchain.messages import AIMessage, HumanMessage, SystemMessage
-from langchain_openai import ChatOpenAI
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
 
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, BaseMessage
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables import Runnable, RunnableConfig
+from langchain_openai import ChatOpenAI
 
 # ========================= 型定義 =========================
 
@@ -146,23 +148,27 @@ def resolve_llm_config() -> Tuple[str, str, str, float, str, str]:
         (model, base_url, api_key, temperature, backend, platform)
     """
     args = parse_args()
-    backend = (args.backend or os.getenv("LLM_BACKEND", "")).strip().lower() or "ollama"
     platform = detect_platform()
 
+    # ★ デフォルト backend を lmstudio に変更
+    backend = (args.backend or os.getenv("LLM_BACKEND", "")).strip().lower() or "lmstudio"
+
     if backend == "ollama":
+        # （必要なら ollama 用のデフォルトも残しておく）
         default_model = "gemma3:4b-it-qat"
         default_base = "http://localhost:11434/v1"
         default_key = "ollama"
     else:
-        if platform == "macos":
-            default_model = "mlx-community/gemma-3-4b-it-qat"
-            default_base = "http://localhost:1234/v1"
-        elif platform == "wsl":
-            default_model = "gemma-3-4b-it-qat"
+        # ★ lmstudio を前提としたデフォルト
+        default_model = "gemma-3-4b-it-qat"
+
+        # WSL なら Windows 側の LM Studio に飛ばす
+        if is_wsl():
             default_base = f"http://{get_windows_host_ip()}:1234/v1"
         else:
-            default_model = "gemma-3-4b-it-qat"
+            # macOS / 素の Linux では localhost をデフォルトに
             default_base = "http://localhost:1234/v1"
+
         default_key = "lmstudio"
 
     model = args.model or os.getenv("LLM_MODEL", default_model)
