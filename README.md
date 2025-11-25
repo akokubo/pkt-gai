@@ -20,18 +20,18 @@
 4. ソースコードをダウンロード `git clone https://github.com/akokubo/pkt-gai.git`
 5. 仮想環境を作成し、ライブラリをインストール
 ```sh
-cd pkt-grai
+cd pkt-gai
 python3 -m venv .venv
 source .venv/bin/activate
 python3 -m pip install --upgrade pip
-python3 -m pip install numpy pandas openpyxl scikit-learn streamlit langchain langchain-openai watchdog
+python3 -m pip install -r requirements.txt
 ```
 
 ### macOSでHomebrewを使用する場合
 1. Homebrewのインストール。ターミナルで、以下を実行。
 ```sh
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-echo >> ~/.zprofile
+touch ~/.zprofile
 echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zprofile
 eval "$(/opt/homebrew/bin/brew shellenv)"
 ```
@@ -71,7 +71,7 @@ ollama pull gemma3:4b-it-qat
 3. Ollamaで大規模言語モデルを実行する
 Ollamaが実行されていないかもしれないので、大規模言語モデルのリストを表示してみる（表示すると実行される）
 ```
-ollama list
+ollama ls
 ```
 
 ## 実行
