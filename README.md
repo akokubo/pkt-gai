@@ -111,6 +111,10 @@ streamlit run app.py -- --backend lmstudio --model gemma-3-4b-it-qat --temperatu
 
 <img src="images/pkt-spread.jpg" width="100%" alt="生成AIタロット占いアプリ">
 
+## 不具合
+画面の表示に使っているStreamlitは、iPhoneのSafariでは文字を入力時に、入力した文字が見えなくなります（入力を確定すると見えるようになる）。
+iPhoneからお使いの場合は、Google ChromeやFirefoxなどのアプリを入れて、それを使ってアクセスください。
+
 ## 作者
 [小久保 温(こくぼ・あつし)](https://akokubo.github.io/)
 
