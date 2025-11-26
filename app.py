@@ -92,19 +92,10 @@ def is_wsl() -> bool:
 def get_windows_host_ip() -> str:
     """
     WSL→Windows のホスト IP を推定する。
-    1) /etc/resolv.conf の nameserver
-    2) ルートテーブルのデフォルトゲートウェイ
+    1) ルートテーブルのデフォルトゲートウェイ
+    2) /etc/resolv.conf の nameserver
     見つからなければ 127.0.0.1
     """
-    try:
-        with open("/etc/resolv.conf", "r", encoding="utf-8", errors="ignore") as f:
-            for line in f:
-                if line.strip().startswith("nameserver"):
-                    ip = line.split()[1]
-                    if ip.count(".") == 3:
-                        return ip
-    except Exception:
-        pass
     try:
         out = subprocess.check_output(
             ["sh", "-lc", "ip route show default | awk '{print $3}'"],
@@ -112,6 +103,15 @@ def get_windows_host_ip() -> str:
         ).decode().strip()
         if out:
             return out.split()[0]
+    except Exception:
+        pass
+    try:
+        with open("/etc/resolv.conf", "r", encoding="utf-8", errors="ignore") as f:
+            for line in f:
+                if line.strip().startswith("nameserver"):
+                    ip = line.split()[1]
+                    if ip.count(".") == 3:
+                        return ip
     except Exception:
         pass
     return "127.0.0.1"
