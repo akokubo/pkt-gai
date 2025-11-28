@@ -53,7 +53,7 @@ conda install numpy scikit-learn streamlit langchain langchain-openai watchdog
 ### LM Studioの場合
 1. LM Studioをインストール
   - [LM Studio](https://lmstudio.ai/)から、ダウンロードしてインストール
-2. LM Studioで大規模言語モデルの `gemma3:4b-it-qat` などをダウンロードする。
+2. LM Studioで大規模言語モデルの `gemma-3-4b-it-qat` などをダウンロードする。
   - 左のアイコンの「探索」で、WSLの場合は`lmstudio-community/gemma-3-4B-it-qat-GGUF`、macOSの場合`mlx-community/gemma-3-4b-it-qat-4bit`をダウンロードする。
 3. LM Studioで大規模言語モデルを実行する
   - 左のアイコンの「開発者」で、「モデルを選択してください」で`Gemma 3 4B Instruct QAT`を選ぶ
