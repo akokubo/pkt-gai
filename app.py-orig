@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Streamlit: 古代ケルト十字法タロット占い（A.E.ウェイト『タロット図解』準拠）
 
@@ -15,13 +16,14 @@ from __future__ import annotations
 
 import argparse
 import base64
+import io
 import json
 import os
 import random
 import subprocess
 import sys
+from datetime import datetime
 from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union, TypedDict
-import requests
 
 import streamlit as st
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -31,6 +33,8 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import Runnable, RunnableConfig
 from langchain_openai import ChatOpenAI
+
+import requests  # ← 追加
 
 
 # ========================= 型定義 =========================
@@ -273,9 +277,6 @@ def check_llm_connection(base_url: str, api_key: str, backend: str, model: str) 
 MODEL, BASE_URL, LLM_API_KEY, TEMPERATURE, LLM_BACKEND, LLM_PLATFORM = resolve_llm_config()
 check_llm_connection(BASE_URL, LLM_API_KEY, LLM_BACKEND, MODEL)
 
-
-# --- システム・プロンプト ---
-
 SYSTEM_PROMPT: str = (
     "あなたは、経験豊富で思慮深く、思いやりがあり、優れた直感と霊感に満ち、よく当たると評判のタロット占い師です。"
     "すべて日本語で回答してください。"
@@ -312,12 +313,6 @@ _meta: Dict[str, Any] = load_tarot_meta()
 ORIENT_LABEL: Dict[str, str] = _meta.get(
     "orient_label", {"upright": "正位置(upright)", "reversed": "逆位置(reversed)"}
 )
-
-# 同じランク複数出現のメタデータ
-RECURRENCE_MEANINGS: Dict[str, Dict[str, Dict[str, str]]] = _meta.get("recurrence", {}).get("en", {})
-RECURRENCE_MEANINGS_JA: Dict[str, Dict[str, Dict[str, str]]] = _meta.get("recurrence", {}).get("ja", {})
-RANK_PLURAL: Dict[str, str] = _meta.get("rank_plural", {})
-RANK_JA: Dict[str, str] = _meta.get("rank_ja", {})
 
 
 def _normalize_item(raw: Union[str, Dict[str, Any]]) -> Optional[Card]:
@@ -544,116 +539,6 @@ def generate_spread(sig_img_id: str) -> List[Dict[str, Union[Card, str, int]]]:
     ]
 
 
-# ---------- 同ランク複数出現の検出ロジック ----------
-
-def count_recurrences(all_cards: List[DealtCard]) -> Dict[str, Dict[str, int]]:
-    """
-    同じ向き（正位置・逆位置）で同ランク（役や数）が複数枚出たらカウント。
-    象徴カード(index=0)は除外。
-    """
-    counts: Dict[str, Dict[str, int]] = {"upright": {}, "reversed": {}}
-    for c in all_cards:
-        if c.get("index", 0) == 0:
-            continue
-        name = c.get("name", "")
-        if " of " not in name:
-            continue
-        rank = name.split(" of ")[0].strip()
-        if not rank:
-            continue
-        orient = c.get("orientation", "upright")
-        if orient not in ("upright", "reversed"):
-            continue
-        counts[orient][rank] = counts[orient].get(rank, 0) + 1
-    return counts
-
-
-def build_recurrences_en(counts: Dict[str, Dict[str, int]]) -> str:
-    """
-    同じ向き（正位置・逆位置）で同ランク（役や数）が複数枚出現した場合の英語サマリ。
-    tarot_meta.json の recurrence.en を使う。
-    """
-    lines: List[str] = []
-
-    def side(key: str, title: str) -> None:
-        rows: List[str] = []
-        for rank, cnt in sorted(counts.get(key, {}).items(), key=lambda x: (-x[1], x[0])):
-            if cnt >= 2:
-                meaning = RECURRENCE_MEANINGS.get(key, {}).get(rank, {}).get(str(cnt))
-                if meaning:
-                    plural = RANK_PLURAL.get(rank, f"{rank}s")
-                    rows.append(f"- {cnt} {plural} → {meaning}")
-        if rows:
-            lines.append(title)
-            lines.extend(rows)
-            lines.append("")
-
-    side("upright", "Upright")
-    side("reversed", "Reversed")
-
-    txt = "\n".join(lines).strip()
-    return txt if txt else "There were no cards of the same rank in the same orientation."
-
-
-def has_meaningful_recurrence(counts: Dict[str, Dict[str, int]]) -> bool:
-    """
-    recurrence.en の辞書に意味が登録されているものが1つでもあれば True。
-    """
-    for orient, ranks in counts.items():
-        for rank, cnt in ranks.items():
-            if cnt >= 2 and RECURRENCE_MEANINGS.get(orient, {}).get(rank, {}).get(str(cnt)):
-                return True
-    return False
-
-
-def build_recurrence_summary_ja(counts: Dict[str, Dict[str, int]]) -> str:
-    """
-    同じ向き（正位置・逆位置）で同ランク（役や数）が複数枚出現した場合の日本語サマリ（Markdown）。
-    """
-    lines: List[str] = []
-    for orient_key, title in (("upright", "正位置"), ("reversed", "逆位置")):
-        items: List[str] = []
-        for rank, cnt in sorted(counts.get(orient_key, {}).items(), key=lambda x: (-x[1], x[0])):
-            if cnt >= 2:
-                rank_label = RANK_JA.get(rank, rank)
-                items.append(f"{rank_label} が{cnt}枚")
-        if items:
-            lines.append(f"- **{title}**: " + ", ".join(items))
-
-    if not lines:
-        return "（同じ向きで同ランクが複数枚出現したカードはありません）"
-    return "\n".join(lines)
-
-
-def recurrence_reading_stream(
-    chat: ChatOpenAI,
-    query_text: str,
-    recurrences_en: str,
-    summary_ja: str,
-) -> Iterable[str]:
-    """
-    同じ向き（正位置・逆位置）で同ランク（役や数）が複数枚出た意味を短く。
-    """
-    if not recurrences_en.strip():
-        return iter(())
-
-    prompt = (
-        "次の「同じ向き（正位置・逆位置）で同ランク（役や数）で複数枚出現」の情報を踏まえ、"
-        "質問に即した短いリーディングを日本語で出してください。\n"
-        "- まず全体的な含意を一段落で簡潔に示す\n"
-        "- 次に「注意点」を1〜3個の箇条書きで\n"
-        "- 最後に「活かし方（アクション）」を1〜3個の箇条書きで\n"
-        "- 不要な見出しや前置きは避け、簡潔に\n\n"
-        "[質問文]\n"
-        f"{query_text}\n\n"
-        "[出現サマリ（日本語）]\n"
-        f"{summary_ja}\n\n"
-        "[Recurrences（英語サマリ）]\n"
-        f"{recurrences_en}\n"
-    )
-    return stream_chat(chat, [SystemMessage(content=SYSTEM_PROMPT), HumanMessage(content=prompt)])
-
-
 # ========================= 表示（CSS／LLMストリーム） =========================
 
 def render_layout_css(layout: str) -> None:
@@ -729,12 +614,10 @@ def conclusion_stream(
     sig: DealtCard,
     query_text: str,
     all_cards: List[DealtCard],
-    pos_labels_en: List[str],
-    recurrences_en: str = "",
+    pos_labels_en: List[str]
 ) -> Iterator[str]:
     """
     スプレッド全体を要約（まとめ）する LLM ストリーム。
-    同ランク複数出現があれば、その情報も付加する。
     """
     sig_en = sig.get("name", "")
     summary = f"significator = {sig_en}\nquery_text = {query_text}\n\n[スプレッド概要 / Spread]\n"
@@ -745,11 +628,7 @@ def conclusion_stream(
         label = pos_labels_en[idx] if idx < len(pos_labels_en) else f"{idx}th"
         orient_str = ORIENT_LABEL.get(c.get("orientation", "upright"), "upright") if idx != 0 else "N/A (Significator)"
         summary += f"・{label}: {jp}（{en}） / {orient_str}\n"
-
-    if recurrences_en.strip():
-        summary += "\n[Recurrences]\n" + recurrences_en + "\n"
-
-    summary += "\n上記を踏まえ、 わかりやすい日本語で、簡潔な短いまとめを提示してください。回答に表題は不要です。"
+    summary += "\n上記を踏まえた簡潔な短いまとめを、わかりやすく、ていねいな日本語で提示してください。回答に表題は不要です。"
     return stream_chat(chat, [SystemMessage(content=SYSTEM_PROMPT), HumanMessage(content=summary)])
 
 
@@ -759,12 +638,10 @@ def advice_stream(
     query_text: str,
     all_cards: List[DealtCard],
     conclusion_text: str,
-    pos_labels_en: List[str],
-    recurrences_en: str = "",
+    pos_labels_en: List[str]
 ) -> Iterator[str]:
     """
     まとめ（conclusion_text）も踏まえた実践的アドバイスを LLM ストリームで生成する。
-    同ランク複数出現があれば、その情報も付加する。
     """
     sig_en = sig.get("name", "")
     summary = f"significator = {sig_en}\nquery_text = {query_text}\n\n[スプレッド概要 / Spread]\n"
@@ -775,9 +652,6 @@ def advice_stream(
         label = pos_labels_en[idx] if idx < len(pos_labels_en) else f"{idx}th"
         orient_str = ORIENT_LABEL.get(c.get("orientation", "upright"), "upright") if idx != 0 else "N/A (Significator)"
         summary += f"・{label}: {jp}（{en}） / {orient_str}\n"
-
-    if recurrences_en.strip():
-        summary += "\n[Recurrences]\n" + recurrences_en + "\n"
 
     summary += (
         "\n上記の流れと次のまとめをふまえて、実践的でやさしい日本語のアドバイスを簡潔に短く提示してください。回答に表題は不要です。\n"
@@ -850,13 +724,6 @@ if submitted:
         "reversed": str(c["card"].get("reversed", "")),
     } for c in spread]  # type: ignore[index]
 
-    # 同ランク複数出現をカウント
-    counts = count_recurrences(all_cards)
-    recurrences_en = build_recurrences_en(counts)
-    if not has_meaningful_recurrence(counts):
-        # 辞書に意味が無ければ、以降のプロンプトには載せない
-        recurrences_en = ""
-
     # 向き→CSS 回転
     rotations: List[str] = [
         "rotate(0deg)" if c["index"] == 0 else
@@ -925,21 +792,11 @@ if submitted:
         card_readings.append({"index": str(idx), "title": sub_title, "body": reading_body})
         st.divider()
 
-    # ---------- 同ランク複数出現のセクション（あれば） ----------
-
-    if recurrences_en.strip():
-        st.header("同じ向き（正位置・逆位置）で同ランク（役や数）が複数枚出現")
-        summary_ja = build_recurrence_summary_ja(counts)
-        st.subheader("出現したもの")
-        st.markdown(summary_ja)
-        _ = write_stream(recurrence_reading_stream(chat, query_text, recurrences_en, summary_ja))
-        st.divider()
-
     # ---------- まとめ ----------
 
     st.header("まとめ")
     conclusion_text = write_stream(
-        conclusion_stream(chat, all_cards[0], query_text, all_cards, pos_labels_en, recurrences_en)
+        conclusion_stream(chat, all_cards[0], query_text, all_cards, pos_labels_en)
     )
 
     # ---------- アドバイス ----------
@@ -947,7 +804,7 @@ if submitted:
     st.divider()
     st.header("アドバイス")
     advice_text = write_stream(
-        advice_stream(chat, all_cards[0], query_text, all_cards, conclusion_text, pos_labels_en, recurrences_en)
+        advice_stream(chat, all_cards[0], query_text, all_cards, conclusion_text, pos_labels_en)
     )
 
     # ---------- リセット ----------
